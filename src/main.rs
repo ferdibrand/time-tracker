@@ -33,19 +33,19 @@ impl Session {
 
     pub fn latest_ao(&self, num_solves: u32) -> Average {
         let latest = self.solves[self.solves.len() - num_solves as usize..].to_vec();
-        Average::Time(trimmed_mean(latest, 0.05))
+        Average::Time(Self::trimmed_mean(latest, 0.05))
     }
-}
 
-fn trimmed_mean(mut solves: Vec<Solve>, trim_amount: f64) -> u32 {
-    solves.sort_by_key(|solve| solve.time);
-    let trim_number = (solves.len() as f64 * trim_amount).ceil();
-    let trimmed = solves[trim_number as usize..solves.len() - trim_number as usize].to_vec();
-    let mut sum = 0;
-    for solve in &trimmed {
-        sum += solve.time;
+    fn trimmed_mean(mut solves: Vec<Solve>, trim_amount: f64) -> u32 {
+        solves.sort_by_key(|solve| solve.time);
+        let trim_number = (solves.len() as f64 * trim_amount).ceil();
+        let trimmed = solves[trim_number as usize..solves.len() - trim_number as usize].to_vec();
+        let mut sum = 0;
+        for solve in &trimmed {
+            sum += solve.time;
+        }
+        sum / trimmed.len() as u32
     }
-    sum / trimmed.len() as u32
 }
 
 #[cfg(test)]
@@ -70,9 +70,7 @@ mod tests {
     #[test]
     fn best_solve_fn_returns_best_solve() {
         let mut session = Session::default();
-        let _ = session.add_time(1);
-        let _ = session.add_time(3);
-        let _ = session.add_time(2);
+        session.add_times(vec![1, 2, 3]);
         let best_solve = session.best_solve().unwrap();
         assert_eq!(best_solve, Solve { time: 1 }, "incorrect time")
     }
