@@ -1,25 +1,51 @@
-use anyhow::Result;
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Solve {
-    time: u32,
+    pub time: u32,
 }
 
-impl Solve {
-    pub fn time(&self) -> Option<u32> {
-        Some(self.time)
+#[derive(Debug, PartialEq)]
+pub enum Average {
+    Time(u32),
+    Dnf,
+    Incomplete,
+}
+
+#[derive(Debug, PartialEq, Default)]
+pub struct Session {
+    pub solves: Vec<Solve>,
+}
+
+impl Session {
+    pub fn add_time(&mut self, time: u32) {
+        let solve = Solve { time };
+        self.solves.push(solve);
+    }
+
+    pub fn add_times(&mut self, times: Vec<u32>) {
+        for time in times {
+            self.add_time(time);
+        }
+    }
+
+    pub fn best_solve(&self) -> Option<Solve> {
+        self.solves.iter().min_by_key(|solve| solve.time).cloned()
+    }
+
+    pub fn latest_ao(&self, num_solves: u32) -> Average {
+        let latest = self.solves[self.solves.len() - num_solves as usize..].to_vec();
+        Average::Time(trimmed_mean(latest, 0.05))
     }
 }
 
-pub fn add_time(solves: &mut Vec<Solve>, input: &str) -> Result<()> {
-    let time: u32 = input.parse()?;
-    let solve = Solve { time };
-    solves.push(solve);
-    Ok(())
-}
-
-fn main() {
-    println!("Hello, world!");
+fn trimmed_mean(mut solves: Vec<Solve>, trim_amount: f64) -> u32 {
+    solves.sort_by_key(|solve| solve.time);
+    let trim_number = (solves.len() as f64 * trim_amount).ceil();
+    let trimmed = solves[trim_number as usize..solves.len() - trim_number as usize].to_vec();
+    let mut sum = 0;
+    for solve in &trimmed {
+        sum += solve.time;
+    }
+    sum / trimmed.len() as u32
 }
 
 #[cfg(test)]
@@ -27,24 +53,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_add_time_adds_time() {
-        let mut solves: Vec<Solve> = Vec::new();
-        let _ = add_time(&mut solves, "31415");
-        let solve = Solve { time: 31415 };
-        assert_eq!(solves[0], solve, "did not add time");
+    fn add_time_fn_adds_time() {
+        let mut session = Session::default();
+        let _ = session.add_time(1);
+        let solve = Solve { time: 1 };
+        assert_eq!(session.solves[0], solve, "did not add time");
     }
 
     #[test]
-    fn test_add_time_rejects_invalid_time() {
-        let mut solves: Vec<Solve> = Vec::new();
-        let result = add_time(&mut solves, "abc");
-        assert!(result.is_err())
+    fn add_times_fn_adds_times() {
+        let mut session = Session::default();
+        session.add_times(vec![1, 2, 3, 4, 5]);
+        assert_eq!(session.solves.len(), 5, "did not add times")
     }
 
     #[test]
-    fn test_time_returns_time() {
-        let solve = Solve { time: 31415 };
-        let time = solve.time().unwrap();
-        assert_eq!(time, 31415, "incorrect time");
+    fn best_solve_fn_returns_best_solve() {
+        let mut session = Session::default();
+        let _ = session.add_time(1);
+        let _ = session.add_time(3);
+        let _ = session.add_time(2);
+        let best_solve = session.best_solve().unwrap();
+        assert_eq!(best_solve, Solve { time: 1 }, "incorrect time")
+    }
+
+    #[test]
+    fn latest_ao5_fn_returns_correct_time() {
+        let mut session = Session::default();
+        session.add_times(vec![1, 2, 3, 4, 5, 6, 50]);
+        let average: Average = session.latest_ao(5);
+        assert_eq!(average, Average::Time(5));
     }
 }
