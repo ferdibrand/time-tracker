@@ -186,7 +186,7 @@ mod tests {
             Solve::new(16, Penalty::None),
             Solve::new(999, Penalty::Dnf),
         ];
-        let average: Average = average(&solves, AverageKind::TrimmedMean(5)).unwrap();
+        let average: Average = average(&solves, &AverageKind::TrimmedMean(5)).unwrap();
         assert_eq!(average, Average::Time(14), "incorrect average");
     }
 
@@ -197,7 +197,7 @@ mod tests {
             Solve::new(13, Penalty::None),
             Solve::new(17, Penalty::None),
         ];
-        let average: Average = average(&solves, AverageKind::Mean).unwrap();
+        let average: Average = average(&solves, &AverageKind::Mean).unwrap();
         assert_eq!(average, Average::Time(14), "incorrect average");
     }
 
@@ -210,14 +210,14 @@ mod tests {
             Solve::new(16, Penalty::None),
             Solve::new(999, Penalty::Dnf),
         ];
-        let average = average(&solves, AverageKind::TrimmedMean(5)).unwrap();
+        let average = average(&solves, &AverageKind::TrimmedMean(5)).unwrap();
         assert_matches!(average, Average::Dnf, "should have returned DNF");
     }
 
     #[test]
     fn average_errors_when_too_few_solves() {
         let solves = vec![Solve::new(12, Penalty::None), Solve::new(13, Penalty::None)];
-        let result = average(&solves, AverageKind::TrimmedMean(5));
+        let result = average(&solves, &AverageKind::TrimmedMean(5));
         assert_matches!(
             result,
             Err(AverageError::NotEnoughSolves {
@@ -232,7 +232,7 @@ mod tests {
     fn average_from_is_correct() {
         let mut session = Session::default();
         session.add_times(vec![1, 2, 3, 4, 5, 6, 7]);
-        let average = session.average_from(1, 5, AverageKind::Mean).unwrap();
+        let average = session.average_from(1, 5, &AverageKind::Mean).unwrap();
         assert_eq!(average, Average::Time(4), "incorrect average");
     }
 
@@ -240,7 +240,7 @@ mod tests {
     fn average_from_incomplete_when_too_few_solves() {
         let mut session = Session::default();
         session.add_times(vec![1, 2, 3, 4, 5, 6, 7]);
-        let average = session.average_from(5, 5, AverageKind::Mean).unwrap();
+        let average = session.average_from(5, 5, &AverageKind::Mean).unwrap();
         assert_eq!(average, Average::Incomplete, "incorrect average");
     }
 
@@ -248,7 +248,7 @@ mod tests {
     fn current_average_is_correct() {
         let mut session = Session::default();
         session.add_times(vec![1, 2, 3, 4, 5, 6, 7]);
-        let average = session.current_average(5, AverageKind::Mean).unwrap();
+        let average = session.current_average(5, &AverageKind::Mean).unwrap();
         assert_eq!(average, Average::Time(5), "incorrect average");
     }
 
@@ -256,7 +256,7 @@ mod tests {
     fn current_average_incomplete_when_too_few_solves() {
         let mut session = Session::default();
         session.add_times(vec![1, 2, 3]);
-        let average = session.current_average(5, AverageKind::Mean).unwrap();
+        let average = session.current_average(5, &AverageKind::Mean).unwrap();
         assert_eq!(average, Average::Incomplete, "incorrect average");
     }
 
@@ -264,7 +264,7 @@ mod tests {
     fn best_average_is_correct() {
         let mut session = Session::default();
         session.add_times(vec![1, 7, 5, 4, 6, 3, 2]);
-        let (_, average) = session.best_average(5, AverageKind::Mean).unwrap();
+        let (_, average) = session.best_average(5, &AverageKind::Mean).unwrap();
         assert_eq!(average, Average::Time(4), "incorrect average");
     }
 }
