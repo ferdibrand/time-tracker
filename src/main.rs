@@ -73,24 +73,24 @@ impl Session {
         &self,
         index: usize,
         size: usize,
-        kind: AverageKind,
+        kind: &AverageKind,
     ) -> Result<Average, AverageError> {
         if self.solves.len() - index < size {
             return Ok(Average::Incomplete);
-        };
+        }
         average(&self.solves[index..index + size], kind)
     }
 
-    fn current_average(&self, size: usize, kind: AverageKind) -> Result<Average, AverageError> {
+    fn current_average(&self, size: usize, kind: &AverageKind) -> Result<Average, AverageError> {
         if self.solves.len() < size {
             return Ok(Average::Incomplete);
-        };
+        }
         self.average_from(self.solves.len() - size, size, kind)
     }
 
-    fn best_average(&self, size: usize, kind: AverageKind) -> Option<(usize, Average)> {
+    fn best_average(&self, size: usize, kind: &AverageKind) -> Option<(usize, Average)> {
         (0..self.solves.len())
-            .map(|u| (u, self.average_from(u, size, kind.clone())))
+            .map(|u| (u, self.average_from(u, size, kind)))
             .filter_map(|(u, r)| match r {
                 Ok(Average::Incomplete) | Err(_) => None,
                 Ok(avg) => Some((u, avg)),
@@ -103,11 +103,11 @@ impl Session {
     }
 }
 
-fn average(solves: &[Solve], kind: AverageKind) -> Result<Average, AverageError> {
+fn average(solves: &[Solve], kind: &AverageKind) -> Result<Average, AverageError> {
     let len = solves.len();
     let trim = match kind {
         AverageKind::Mean => 0,
-        AverageKind::TrimmedMean(amount) => (len * amount + 99) / 100,
+        AverageKind::TrimmedMean(amount) => (len * amount).div_ceil(100),
     };
 
     if len < trim * 2 + 1 {
