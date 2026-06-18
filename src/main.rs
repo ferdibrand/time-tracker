@@ -1,4 +1,6 @@
 #![allow(dead_code, unused)]
+use std::thread::AccessError;
+
 use thiserror::Error;
 
 use crate::AverageKind::TrimmedMean;
@@ -30,6 +32,7 @@ enum Average {
     Incomplete,
 }
 
+#[derive(Clone)]
 enum AverageKind {
     Mean,
     TrimmedMean(usize),
@@ -64,6 +67,39 @@ impl Session {
             Some(time) => (0, time),
             None => (1, 0),
         })
+    }
+
+    fn average_from(
+        &self,
+        index: usize,
+        size: usize,
+        kind: AverageKind,
+    ) -> Result<Average, AverageError> {
+        if self.solves.len() - index < size {
+            return Ok(Average::Incomplete);
+        };
+        average(&self.solves[index..index + size], kind)
+    }
+
+    fn current_average(&self, size: usize, kind: AverageKind) -> Result<Average, AverageError> {
+        if self.solves.len() < size {
+            return Ok(Average::Incomplete);
+        };
+        self.average_from(self.solves.len() - size, size, kind)
+    }
+
+    fn best_average(&self, size: usize, kind: AverageKind) -> Option<(usize, Average)> {
+        (0..self.solves.len())
+            .map(|u| (u, self.average_from(u, size, kind.clone())))
+            .filter_map(|(u, r)| match r {
+                Ok(Average::Incomplete) | Err(_) => None,
+                Ok(avg) => Some((u, avg)),
+            })
+            .min_by_key(|(u, avg)| match avg {
+                Average::Time(time) => (0, *time, *u),
+                Average::Dnf => (1, 0, 0),
+                Average::Incomplete => unreachable!("Incomplete filtered out above"),
+            })
     }
 }
 
@@ -155,6 +191,17 @@ mod tests {
     }
 
     #[test]
+    fn average_mean_is_correct() {
+        let solves = vec![
+            Solve::new(12, Penalty::None),
+            Solve::new(13, Penalty::None),
+            Solve::new(17, Penalty::None),
+        ];
+        let average: Average = average(&solves, AverageKind::Mean).unwrap();
+        assert_eq!(average, Average::Time(14), "incorrect average");
+    }
+
+    #[test]
     fn average_is_dnf_with_multiple_dnf_solves() {
         let solves = vec![
             Solve::new(12, Penalty::None),
@@ -179,5 +226,45 @@ mod tests {
             }),
             "should have returned NotEnoughSolves error",
         );
+    }
+
+    #[test]
+    fn average_from_is_correct() {
+        let mut session = Session::default();
+        session.add_times(vec![1, 2, 3, 4, 5, 6, 7]);
+        let average = session.average_from(1, 5, AverageKind::Mean).unwrap();
+        assert_eq!(average, Average::Time(4), "incorrect average");
+    }
+
+    #[test]
+    fn average_from_incomplete_when_too_few_solves() {
+        let mut session = Session::default();
+        session.add_times(vec![1, 2, 3, 4, 5, 6, 7]);
+        let average = session.average_from(5, 5, AverageKind::Mean).unwrap();
+        assert_eq!(average, Average::Incomplete, "incorrect average");
+    }
+
+    #[test]
+    fn current_average_is_correct() {
+        let mut session = Session::default();
+        session.add_times(vec![1, 2, 3, 4, 5, 6, 7]);
+        let average = session.current_average(5, AverageKind::Mean).unwrap();
+        assert_eq!(average, Average::Time(5), "incorrect average");
+    }
+
+    #[test]
+    fn current_average_incomplete_when_too_few_solves() {
+        let mut session = Session::default();
+        session.add_times(vec![1, 2, 3]);
+        let average = session.current_average(5, AverageKind::Mean).unwrap();
+        assert_eq!(average, Average::Incomplete, "incorrect average");
+    }
+
+    #[test]
+    fn best_average_is_correct() {
+        let mut session = Session::default();
+        session.add_times(vec![1, 7, 5, 4, 6, 3, 2]);
+        let (_, average) = session.best_average(5, AverageKind::Mean).unwrap();
+        assert_eq!(average, Average::Time(4), "incorrect average");
     }
 }
